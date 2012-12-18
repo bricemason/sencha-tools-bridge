@@ -1,0 +1,171 @@
+#!/bin/bash
+#
+#  sencha-bridge
+#
+#  Allows Sencha SDK Tools for Sencha Touch 2.0
+#  to co-exist with Sencha Cmd for Sencha Touch 2.1
+#
+#  by Brice Mason
+#
+#  http://www.bricemason.com
+#  http://www.twitter.com/bricemason
+#  http://www.github.com/bricemason
+#  http://www.vimeo.com/bricemason
+#  brice@bricemason.com
+
+CMD=$1
+SDKPATH=${2%/}
+BRIDGEDIR="sencha-tools-bridge"
+SDKPATHLINE="export PATH=$SDKPATH:\$PATH"
+BRIDGELINE="export PATH=~/$BRIDGEDIR:\$PATH"
+
+# formats
+bold=`tput bold`
+normal=`tput sgr0`
+
+function header {
+   echo "=================================================="
+   echo "Sencha Tools Bridge by Brice Mason"
+   echo "http://www.github.com/bricemason/sencha-tools-bridge"
+   echo "=================================================="
+}
+
+function checkInputs {
+   if [ -z $CMD ]; then
+      echo "${bold}Usage Error:${bold}${normal}"
+      echo "sencha-bridge install|uninstall 'pathToSDK'"
+      exit
+   fi
+
+   if [ $CMD != "install" ] && [ $CMD != "uninstall" ]; then
+      echo "${bold}Error:${bold}${normal} Invalid command, please use 'install' or 'uninstall'"
+      exit
+   fi
+
+   if [ -z $SDKPATH ] || [ ! -d $SDKPATH ]; then
+      echo "${bold}Error:${bold}${normal} Please provide a valid path to the Sencha SDK Tools"
+      exit
+   fi
+}
+
+function backupProfileScripts {
+   cp ~/.bash_profile ~/.bash_profile.pre-$BRIDGEDIR
+   cp ~/.bashrc ~/.bashrc.pre-$BRIDGEDIR
+}
+
+function removeLineFromFile {
+   LINETOREMOVE="$1 $2"
+   FROMFILE=$3
+   CONTENT=""
+
+   while read LINE
+   do
+      if [ "$LINE" != "$LINETOREMOVE" ]; then
+         CONTENT="$CONTENT$LINE\n"
+      fi 
+   done < $FROMFILE
+
+   # write the new file
+   echo -e $CONTENT > $FROMFILE
+
+   echo "Removed $LINETOREMOVE from $FROMFILE"
+}
+
+function addLineToFile {
+   LINETOADD="$1 $2"
+   TOFILE=$3
+
+   if grep -F "$LINETOADD" $TOFILE; then
+      return
+   fi
+
+   echo -e "$LINETOADD" >> $TOFILE
+
+   echo "Added $LINETOADD to $TOFILE"
+}
+
+function createBridgeFiles {
+   # directory to store symlinks to sencha sdk tools
+   if [ ! -d ~/$BRIDGEDIR ]; then
+      mkdir ~/$BRIDGEDIR
+      echo "Created ~/$BRIDGEDIR"
+   fi
+
+   # create symlink to sencha command
+   if [ ! -e ~/$BRIDGEDIR/sencha-legacy ]; then
+      ln -s $SDKPATH/sencha ~/$BRIDGEDIR/sencha-legacy
+      echo "Created ~/$BRIDGEDIR/sencha-legacy"
+   fi
+
+   # create symlink to node
+   if [ ! -d ~/$BRIDGEDIR/bin ]; then
+      mkdir ~/$BRIDGEDIR/bin
+      echo "Created ~/$BRIDGEDIR/bin"
+   fi
+
+   if [ ! -e ~/$BRIDGEDIR/bin/node ]; then
+      ln -s $SDKPATH/bin/node ~/$BRIDGEDIR/bin/node
+      echo "Created ~/$BRIDGEDIR/bin/node"
+   fi
+
+   # create symlink to sencha.js
+   if [ ! -e ~/$BRIDGEDIR/sencha.js ]; then
+      ln -s $SDKPATH/sencha.js ~/$BRIDGEDIR/sencha.js
+      echo "Created ~/$BRIDGEDIR/sencha.js"
+   fi
+}
+
+function install {
+   echo "Installing Sencha Tools Bridge..."
+
+   echo "Backing up profile scripts"
+   backupProfileScripts
+
+   echo "Removing Sencha SDK Tools from PATH"
+   removeLineFromFile $SDKPATHLINE ~/.bash_profile
+   removeLineFromFile $SDKPATHLINE ~/.bashrc
+
+   echo "Creating symlinks to Sencha SDK Tools"
+   createBridgeFiles
+
+   echo "Adding Sencha Tools Bridge to PATH"
+   addLineToFile $BRIDGELINE ~/.bash_profile
+   addLineToFile $BRIDGELINE ~/.bashrc
+
+   echo "--------------------------------------------------"
+   echo "Sencha Tools Bridge installed successfully"
+   echo "A backup of your profile scripts has been created in .bash_profile.pre-$BRIDGEDIR and .bashrc.pre-$BRIDGEDIR"
+   echo "To use the Sencha SDK Tools, use the command 'sencha-legacy'"
+   echo "To use Sencha Cmd, use the command 'sencha'"
+}
+
+function uninstall {
+   echo "Uninstalling Sencha Tools Bridge..."
+
+   echo "Backing up profile scripts"
+   backupProfileScripts
+
+   echo "Adding Sencha SDK Tools to PATH"
+   addLineToFile $SDKPATHLINE ~/.bash_profile
+   addLineToFile $SDKPATHLINE ~/.bashrc
+
+   echo "Removing Sencha Tools Bridge files"
+   rm -r ~/$BRIDGEDIR
+
+   echo "Removing Sencha Tools Bridge from PATH"
+   removeLineFromFile $BRIDGELINE ~/.bash_profile
+   removeLineFromFile $BRIDGELINE ~/.bashrc
+
+   echo "--------------------------------------------------"
+   echo "Sencha Tools Bridge unintalled successfully"
+   echo "A backup of your profile scripts has been created in .bash_profile.pre-$BRIDGEDIR and .bashrc.pre-$BRIDGEDIR"
+}
+
+header
+checkInputs
+
+if [ $CMD == "install" ]; then
+   install
+else
+   uninstall
+fi
