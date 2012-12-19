@@ -15,9 +15,8 @@
 
 CMD=$1
 SDKPATH=${2%/}
-BRIDGEDIR="sencha-tools-bridge"
 SDKPATHLINE="export PATH=$SDKPATH:\$PATH"
-BRIDGELINE="export PATH=~/$BRIDGEDIR:\$PATH"
+BRIDGEALIAS="alias sencha-legacy=\"\$SENCHA_SDK_TOOLS_2_0_0_BETA3/sencha\""
 
 # formats
 bold=`tput bold`
@@ -49,8 +48,8 @@ function checkInputs {
 }
 
 function backupProfileScripts {
-   cp ~/.bash_profile ~/.bash_profile.pre-$BRIDGEDIR
-   cp ~/.bashrc ~/.bashrc.pre-$BRIDGEDIR
+   cp ~/.bash_profile ~/.bash_profile.sencha-tools-bridge-save
+   cp ~/.bashrc ~/.bashrc.sencha-tools-bridge-save
 }
 
 function removeLineFromFile {
@@ -84,37 +83,6 @@ function addLineToFile {
    echo "Added $LINETOADD to $TOFILE"
 }
 
-function createBridgeFiles {
-   # directory to store symlinks to sencha sdk tools
-   if [ ! -d ~/$BRIDGEDIR ]; then
-      mkdir ~/$BRIDGEDIR
-      echo "Created ~/$BRIDGEDIR"
-   fi
-
-   # create symlink to sencha command
-   if [ ! -e ~/$BRIDGEDIR/sencha-legacy ]; then
-      ln -s $SDKPATH/sencha ~/$BRIDGEDIR/sencha-legacy
-      echo "Created ~/$BRIDGEDIR/sencha-legacy"
-   fi
-
-   # create symlink to node
-   if [ ! -d ~/$BRIDGEDIR/bin ]; then
-      mkdir ~/$BRIDGEDIR/bin
-      echo "Created ~/$BRIDGEDIR/bin"
-   fi
-
-   if [ ! -e ~/$BRIDGEDIR/bin/node ]; then
-      ln -s $SDKPATH/bin/node ~/$BRIDGEDIR/bin/node
-      echo "Created ~/$BRIDGEDIR/bin/node"
-   fi
-
-   # create symlink to sencha.js
-   if [ ! -e ~/$BRIDGEDIR/sencha.js ]; then
-      ln -s $SDKPATH/sencha.js ~/$BRIDGEDIR/sencha.js
-      echo "Created ~/$BRIDGEDIR/sencha.js"
-   fi
-}
-
 function install {
    echo "Installing Sencha Tools Bridge..."
 
@@ -125,16 +93,13 @@ function install {
    removeLineFromFile $SDKPATHLINE ~/.bash_profile
    removeLineFromFile $SDKPATHLINE ~/.bashrc
 
-   echo "Creating symlinks to Sencha SDK Tools"
-   createBridgeFiles
-
-   echo "Adding Sencha Tools Bridge to PATH"
-   addLineToFile $BRIDGELINE ~/.bash_profile
-   addLineToFile $BRIDGELINE ~/.bashrc
+   echo "Creating alias to Sencha SDK Tools"
+   addLineToFile $BRIDGEALIAS ~/.bash_profile
+   addLineToFile $BRIDGEALIAS ~/.bashrc
 
    echo "--------------------------------------------------"
    echo "Sencha Tools Bridge installed successfully"
-   echo "A backup of your profile scripts has been created in .bash_profile.pre-$BRIDGEDIR and .bashrc.pre-$BRIDGEDIR"
+   echo "A backup of your profile scripts has been created in .bash_profile.sencha-tools-bridge-save and .bashrc.sencha-tools-bridge-save"
    echo "To use the Sencha SDK Tools, use the command 'sencha-legacy'"
    echo "To use Sencha Cmd, use the command 'sencha'"
 }
@@ -149,16 +114,13 @@ function uninstall {
    addLineToFile $SDKPATHLINE ~/.bash_profile
    addLineToFile $SDKPATHLINE ~/.bashrc
 
-   echo "Removing Sencha Tools Bridge files"
-   rm -r ~/$BRIDGEDIR
-
-   echo "Removing Sencha Tools Bridge from PATH"
-   removeLineFromFile $BRIDGELINE ~/.bash_profile
-   removeLineFromFile $BRIDGELINE ~/.bashrc
+   echo "Removing Sencha SDK Tools alias"
+   removeLineFromFile $BRIDGEALIAS ~/.bash_profile
+   removeLineFromFile $BRIDGEALIAS ~/.bashrc
 
    echo "--------------------------------------------------"
    echo "Sencha Tools Bridge unintalled successfully"
-   echo "A backup of your profile scripts has been created in .bash_profile.pre-$BRIDGEDIR and .bashrc.pre-$BRIDGEDIR"
+   echo "A backup of your profile scripts has been created in .bash_profile.sencha-tools-bridge-save and .bashrc.sencha-tools-bridge-save"
 }
 
 header
