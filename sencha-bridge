@@ -13,10 +13,23 @@
 #  http://www.vimeo.com/bricemason
 #  brice@bricemason.com
 
+# directory of this script
+THISDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+# install | uninstall | args to sencha command
 CMD=$1
-SDKPATH=${2%/}
-SDKPATHLINE="export PATH=$SDKPATH:\$PATH"
-BRIDGEALIAS="alias sencha-legacy=\"\$SENCHA_SDK_TOOLS_2_0_0_BETA3/sencha\""
+
+# take over the 'sencha' command
+SENCHAALIAS="alias sencha=\"$THISDIR/sencha-bridge\""
+
+# sencha sdk tools
+SENCHA2LINE="export PATH=$SENCHA_SDK_TOOLS_2_0_0_BETA3:\$PATH"
+
+# sencha cmd
+SENCHA3LINE="export PATH=$SENCHA_CMD_3_0_0:\$PATH"
+
+# profile scripts to manage
+PROFILESCRIPTS=(~/.bash_profile ~/.bashrc)
 
 # formats
 bold=`tput bold`
@@ -29,33 +42,27 @@ function header {
    echo "=================================================="
 }
 
-function checkInputs {
-   if [ -z $CMD ]; then
-      echo "${bold}Usage Error:${bold}${normal}"
-      echo "sencha-bridge install|uninstall 'pathToSDK'"
-      exit
-   fi
-
-   if [ $CMD != "install" ] && [ $CMD != "uninstall" ]; then
-      echo "${bold}Error:${bold}${normal} Invalid command, please use 'install' or 'uninstall'"
-      exit
-   fi
-
-   if [ -z $SDKPATH ] || [ ! -d $SDKPATH ]; then
-      echo "${bold}Error:${bold}${normal} Please provide a valid path to the Sencha SDK Tools"
-      exit
-   fi
+function backupProfileScripts {
+   for script in "${PROFILESCRIPTS[@]}"
+   do
+      echo "backing up $script to $script.sencha-tools-bridge-save"
+      cp $script "$script.sencha-tools-bridge-save"
+   done
 }
 
-function backupProfileScripts {
-   cp ~/.bash_profile ~/.bash_profile.sencha-tools-bridge-save
-   cp ~/.bashrc ~/.bashrc.sencha-tools-bridge-save
+function removeLine {
+   local LINETOREMOVE=$1
+
+   for script in "${PROFILESCRIPTS[@]}"
+   do
+      removeLineFromFile "$LINETOREMOVE" $script
+   done
 }
 
 function removeLineFromFile {
-   LINETOREMOVE="$1 $2"
-   FROMFILE=$3
-   CONTENT=""
+   local LINETOREMOVE=$1
+   local FROMFILE=$2
+   local CONTENT=""
 
    while read LINE
    do
@@ -70,9 +77,18 @@ function removeLineFromFile {
    echo "Removed $LINETOREMOVE from $FROMFILE"
 }
 
+function addLine {
+   local LINETOADD=$1
+
+   for script in "${PROFILESCRIPTS[@]}"
+   do
+      addLineToFile "$LINETOADD" $script
+   done
+}
+
 function addLineToFile {
-   LINETOADD="$1 $2"
-   TOFILE=$3
+   local LINETOADD=$1
+   local TOFILE=$2
 
    if grep -F "$LINETOADD" $TOFILE; then
       return
@@ -89,19 +105,15 @@ function install {
    echo "Backing up profile scripts"
    backupProfileScripts
 
-   echo "Removing Sencha SDK Tools from PATH"
-   removeLineFromFile $SDKPATHLINE ~/.bash_profile
-   removeLineFromFile $SDKPATHLINE ~/.bashrc
+   echo "Removing Sencha SDK Tools and Sencha Cmd from PATH"
+   removeLine "$SENCHA2LINE"
+   removeLine "$SENCHA3LINE"
 
-   echo "Creating alias to Sencha SDK Tools"
-   addLineToFile $BRIDGEALIAS ~/.bash_profile
-   addLineToFile $BRIDGEALIAS ~/.bashrc
+   echo "Creating alias to 'sencha' command"
+   addLine "$SENCHAALIAS"
 
    echo "--------------------------------------------------"
    echo "Sencha Tools Bridge installed successfully"
-   echo "A backup of your profile scripts has been created in .bash_profile.sencha-tools-bridge-save and .bashrc.sencha-tools-bridge-save"
-   echo "To use the Sencha SDK Tools, use the command 'sencha-legacy'"
-   echo "To use Sencha Cmd, use the command 'sencha'"
 }
 
 function uninstall {
@@ -110,24 +122,61 @@ function uninstall {
    echo "Backing up profile scripts"
    backupProfileScripts
 
-   echo "Adding Sencha SDK Tools to PATH"
-   addLineToFile $SDKPATHLINE ~/.bash_profile
-   addLineToFile $SDKPATHLINE ~/.bashrc
+   echo "Adding Sencha SDK Tools and Sencha Cmd to PATH"
+   addLine "$SENCHA2LINE"
+   addLine "$SENCHA3LINE"
 
-   echo "Removing Sencha SDK Tools alias"
-   removeLineFromFile $BRIDGEALIAS ~/.bash_profile
-   removeLineFromFile $BRIDGEALIAS ~/.bashrc
+   echo "Removing alias to 'sencha' command"
+   removeLine "$SENCHAALIAS"
 
    echo "--------------------------------------------------"
    echo "Sencha Tools Bridge unintalled successfully"
-   echo "A backup of your profile scripts has been created in .bash_profile.sencha-tools-bridge-save and .bashrc.sencha-tools-bridge-save"
 }
 
-header
-checkInputs
+function getSenchaFrameworkVersion {
+   local VERSION=""
 
-if [ $CMD == "install" ]; then
+   if [ -f "version.txt" ]; then
+      # inside a framework directory
+      VERSION=`cat version.txt`
+
+      if [[ $VERSION =~ 2\.0.* ]]; then
+         # inside framework 2.0x
+         echo 2
+      else
+         # inside framework 2.1x
+         echo 3
+      fi
+   elif [ -d "sdk" ]; then
+      # inside a 2.0x app
+      echo 2
+   elif [ -d "touch" ]; then
+      # inside a 2.1x app
+      echo 3
+   else
+      # all else fails, fail over to cmd
+      echo 3
+   fi
+}
+
+function senchaBridge {
+   local FRAMEWORKVERSION=$(getSenchaFrameworkVersion)
+   
+   if [ $FRAMEWORKVERSION -eq 2 ]; then
+      # pass command to sdk tools
+      $SENCHA_SDK_TOOLS_2_0_0_BETA3/sencha "$@"
+   elif [ $FRAMEWORKVERSION -eq 3 ]; then
+      # pass command to cmd
+      $SENCHA_CMD_3_0_0/sencha "$@"
+   fi
+}
+
+if [ ! -z $CMD ] && [ $CMD == "install" ]; then
+   header
    install
-else
+elif [ ! -z $CMD ] && [ $CMD == "uninstall" ]; then
+   header
    uninstall
+else
+   senchaBridge "$@"
 fi
